@@ -1,6 +1,8 @@
 import os
 import numpy as np
-from sklearn import tree, cross_validation
+from sklearn import cross_validation
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import AdaBoostClassifier
 
 directory = os.path.dirname(os.path.abspath(__file__))
 training_file = directory + '\\kaggle_training.txt'
@@ -17,46 +19,47 @@ X = data[:, :1000]
 Y = data[:, 1000]
 
 # cross validation
-#min_depth_error = 5*len(X)
-#min_leaf_error = 5*len(X)
-#kf = cross_validation.KFold(len(X), n_folds=5)
-#for depth in range(15, 55):
-#    err = 0 
-#    for train_idx, test_idx in kf:
-#        X_train, X_test = X[train_idx], X[test_idx]
-#        Y_train, Y_test = Y[train_idx], Y[test_idx]
-#        clf = tree.DecisionTreeClassifier(max_depth=depth)
-#        clf = clf.fit(X_train, Y_train)
-#        Y_pred = clf.predict(X_test)
-#        for i in range(len(X_test)):
-#            if Y_pred[i] != Y_test[i]:
-#                err += 1
-#    if err < min_depth_error:
-#        min_depth_error = err
-#        min_depth = depth
-#print (min_depth_error, min_depth)
-#
-#for leaf_size in range(1, 30):
-#    err = 0 
-#    for train_idx, test_idx in kf:
-#        X_train, X_test = X[train_idx], X[test_idx]
-#        Y_train, Y_test = Y[train_idx], Y[test_idx]
-#        clf = tree.DecisionTreeClassifier(min_samples_leaf=leaf_size)
-#        clf = clf.fit(X_train, Y_train)
-#        Y_pred = clf.predict(X_test)
-#        for i in range(len(X_test)):
-#            if Y_pred[i] != Y_test[i]:
-#                err += 1
-#    if err < min_leaf_error:
-#        min_leaf_error = err
-#        min_leaf = leaf_size
-#
-#print (float(min_leaf_error)/len(X), min_leaf)
+max_depth_accuracy = 0
+max_leaf_accuracy = 0
+kf = cross_validation.KFold(len(X), n_folds=5)
+for depth in range(1, 5):
+    for estimator in range(50, 500, 50):
+        err = 0 
+        for train_idx, test_idx in kf:
+            X_train, X_test = X[train_idx], X[test_idx]
+            Y_train, Y_test = Y[train_idx], Y[test_idx]
+            clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth=depth), n_estimators=estimator)
+            clf = clf.fit(X_train, Y_train)
+            err += clf.score(X_test, Y_test)
+        err /= 5.0
+        if err > max_depth_accuracy:
+            print err
+            print depth
+            print estimator
+            max_depth_accuracy = err
+            max_depth = depth
+            best_est = estimator
+print (max_depth_accuracy, max_depth, best_est)
 
-## testing data
+for leaf_size in range(1, 20):
+    err = 0 
+    for train_idx, test_idx in kf:
+        X_train, X_test = X[train_idx], X[test_idx]
+        Y_train, Y_test = Y[train_idx], Y[test_idx]
+        clf = AdaBoostClassifier(DecisionTreeClassifier(min_samples_leaf=leaf_size))
+        clf = clf.fit(X_train, Y_train)
+        err += clf.score(X_test, Y_test)
+    err /= 5.0
+    if err > max_leaf_accuracy:
+        max_leaf_accuracy = err
+        min_leaf = leaf_size
+
+print (max_leaf_accuracy, min_leaf)
+
+# testing data
 X_t = test
 
-clf = tree.DecisionTreeClassifier(min_samples_leaf=4)
+clf = clf = AdaBoostClassifier(DecisionTreeClassifier(max_depth=max_depth), n_estimators=best_est)
 clf = clf.fit(X, Y)
 
 Y_t = clf.predict(X_t)
